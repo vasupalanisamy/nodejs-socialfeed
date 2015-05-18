@@ -24,6 +24,10 @@ let userSchema = mongoose.Schema({
         type: String,
         required: false
       },
+      tokenSecret: {
+        type: String,
+        required: false
+      },
       email: {
         type: String,
         required: false
@@ -42,6 +46,10 @@ let userSchema = mongoose.Schema({
         type: String,
         required: false
       },
+      tokenSecret: {
+        type: String,
+        required: false
+      },
       name: {
         type: String,
         required: false
@@ -57,6 +65,10 @@ let userSchema = mongoose.Schema({
         required: false
       },
       token: {
+        type: String,
+        required: false
+      },
+      tokenSecret: {
         type: String,
         required: false
       },

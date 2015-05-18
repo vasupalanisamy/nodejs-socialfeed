@@ -2,7 +2,6 @@ let passport = require('passport')
 let nodeifyit = require('nodeifyit')
 let User = require('../models/user')
 let util = require('util')
-let requireDir = require('require-dir')
 let LocalStrategy = require('passport-local').Strategy
 let FacebookStrategy = require('passport-facebook').Strategy
 let GoogleStrategy = require('passport-google-oauth').OAuth2Strategy
@@ -10,7 +9,6 @@ let TwitterStrategy = require('passport-twitter').Strategy
 
 require('songbird')
 
-let configs = requireDir('../../config', {recurse: true})
 
 function useExternalPassportStrategy(OauthStrategy, config, field) {
   config.passReqToCallback = true
@@ -24,10 +22,10 @@ function useExternalPassportStrategy(OauthStrategy, config, field) {
   // 3. If not, we're authenticating (logging in)
   // 3a. If user exists, we're logging in via the 3rd party account
   // 3b. Otherwise create a user associated with the 3rd party account
-  async function authCB(req, token, refreshToken, account) {
+  async function authCB(req, token, tokenSecret, account) {
     console.log('req.user-->' + req.user)
     console.log('token-->' + token)
-    console.log('_ignored_-->' + refreshToken)
+    console.log('tokenSecret-->' + tokenSecret)
     console.log('account-->' + JSON.stringify(account))
     let idField = field + '.id'
     let query = {}
@@ -54,6 +52,7 @@ function useExternalPassportStrategy(OauthStrategy, config, field) {
     }
     user[field].id = account.id
     user[field].token = token
+    user[field].tokenSecret = tokenSecret
     if(field === 'twitter') {
       user[field].username = account.username
     } else {
@@ -78,10 +77,10 @@ function configure(config) {
       return await User.promise.findById(id)
   }))
 
-  // useExternalPassportStrategy(LinkedInStrategy, {...}, 'linkedin')
-  useExternalPassportStrategy(FacebookStrategy, configs.auth.facebookAuth, 'facebook')
-  useExternalPassportStrategy(GoogleStrategy, configs.auth.googleAuth, 'google')
-  useExternalPassportStrategy(TwitterStrategy, configs.auth.twitterAuth, 'twitter')
+  console.log('config...' + config)
+  useExternalPassportStrategy(FacebookStrategy, config.facebookAuth, 'facebook')
+  useExternalPassportStrategy(GoogleStrategy, config.googleAuth, 'google')
+  useExternalPassportStrategy(TwitterStrategy, config.twitterAuth, 'twitter')
 
   passport.use(new LocalStrategy({
       usernameField: 'email',
@@ -117,7 +116,7 @@ function configure(config) {
       if(req.user) {
         user = req.user
       } else {
-        user = req.user
+        user = new User()
       }
 
       user.local.email = email
