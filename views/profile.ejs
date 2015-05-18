@@ -12,8 +12,12 @@
 <div class="container">
 
     <div class="page-header text-center">
-        <h1><span class="fa fa-user"></span> Profile Page</h1>
-        <a href="/logout" class="btn btn-default btn-sm">Logout</a>
+        <h1><span class="fa fa-home"></span> Profile</h1>
+        <a href="/compose" class="btn btn-default btn-sm">
+            <i class="fa fa-pencil-square-o"></i>&nbsp;&nbsp;&nbsp;Compose
+        </a>
+        <a href="/timeline" class="btn btn-default btn-sm">Timeline</a>
+        <a href="/logout" class="btn btn-default btn-sm">Logout</a><br><br>
     </div>
 
     <% if (message.length > 0) { %>
@@ -43,6 +47,28 @@
             </div>
         </div>
 
+        <!-- TWITTER INFORMATION -->
+        <div class="col-sm-6">
+            <div class="well">
+                <h3 class="text-info"><span class="fa fa-twitter"></span> Twitter</h3>
+
+                <% if (user.twitter.token) { %>
+                    <p>
+                        <strong>id</strong>: <%= user.twitter.id %><br>
+                        <strong>token</strong>: <%= user.twitter.token %><br>
+                        <strong>display name</strong>: <%= user.twitter.name %><br>
+                        <strong>username</strong>: <%= user.twitter.username %>
+                    </p>
+
+                    <a href="/unlink/twitter" class="btn btn-info">Unlink</a>
+                <% } else { %>
+                    <a href="/auth/twitter" class="btn btn-info">Connect Twitter</a>
+                <% } %>
+
+            </div>
+        </div>
+        
+    </div>
     <div class="row">
 
         <!-- FACEBOOK INFORMATION -->
@@ -67,30 +93,7 @@
             </div>
         </div>
 
-        <!-- TWITTER INFORMATION -->
-        <div class="col-sm-6">
-            <div class="well">
-                <h3 class="text-info"><span class="fa fa-twitter"></span> Twitter</h3>
 
-                <% if (user.twitter.token) { %>
-                    <p>
-                        <strong>id</strong>: <%= user.twitter.id %><br>
-                        <strong>token</strong>: <%= user.twitter.token %><br>
-                        <strong>display name</strong>: <%= user.twitter.name %><br>
-                        <strong>username</strong>: <%= user.twitter.username %>
-                    </p>
-
-                    <a href="/unlink/twitter" class="btn btn-info">Unlink</a>
-                <% } else { %>
-                    <a href="/auth/twitter" class="btn btn-info">Connect Twitter</a>
-                <% } %>
-
-            </div>
-        </div>
-
-    </div>
-
-    <div class="row">
         <!-- GOOGLE INFORMATION -->
         <div class="col-sm-6">
             <div class="well">
@@ -111,6 +114,7 @@
 
             </div>
         </div>
+
     </div>
 
 </div>
