@@ -2,6 +2,7 @@ let isLoggedIn = require('./middlewares/isLoggedIn')
 //let posts = require('../data/posts')
 let Twitter = require('twitter')
 let then = require('express-then')
+let FB = require('fb')
 let google = require('googleapis')
 let plus = google.plus('v1')
 let OAuth2 = google.auth.OAuth2
@@ -11,6 +12,7 @@ module.exports = (app) => {
     let passport = app.passport
     let twitterConfig = app.config.auth.twitterAuth
     let googleConfig = app.config.auth.googleAuth
+    let facebookConfig = app.config.auth.facebookAuth
 
     let networks = {
         facebook: {
@@ -63,8 +65,7 @@ module.exports = (app) => {
 		failureFlash: true
 	}))
 
-    let facebookScope = 'email'
-    app.get('/auth/facebook', passport.authenticate('facebook', {facebookScope}))
+    app.get('/auth/facebook', passport.authenticate('facebook', {scope: 'email, publish_actions, user_posts, user_likes, read_stream'}))
     app.get('/auth/facebook/callback', passport.authenticate('facebook', {
         successRedirect: '/profile',
         failureRedirect: '/profile',
@@ -128,8 +129,26 @@ module.exports = (app) => {
             }
         })
 
+        FB.setAccessToken(req.user.facebook.token)
+        let response = await new Promise((resolve, reject) => FB.api('/me/feed', resolve))
+        let fbFeeds = response.data
+        console.log(fbFeeds)
+        fbFeeds = fbFeeds.map (fbfeed => {
+            console.log(JSON.stringify(fbfeed.from))
+            return {
+                id: fbfeed.id,
+                image: 'https://graph.facebook.com/v2.3/' + fbfeed.from.id + '/picture',
+                text: fbfeed.message ? fbfeed.message : fbfeed.story,
+                name: fbfeed.from.name,
+                username: req.user.facebook.email,
+                liked: fbfeed.likes ? true : false,
+                network: networks.facebook
+            }
+        })
+        //FB.api('/me/feed', response => )
+
         res.render('timeline.ejs', {
-            posts: tweets.concat(activities),
+            posts: tweets.concat(activities).concat(fbFeeds),
             message: req.flash('error')
         })
     }))
@@ -145,6 +164,7 @@ module.exports = (app) => {
               access_token_key: req.user.twitter.token,
               access_token_secret: req.user.twitter.tokenSecret
         })
+        FB.setAccessToken(req.user.facebook.token)
 
         let status = req.body.text
         console.log('status' + status)
@@ -157,38 +177,50 @@ module.exports = (app) => {
         }
 
         await twitterClient.promise.post('statuses/update', {status})
+        await new Promise((resolve, reject) => FB.api('me/feed', 'post', {message: status}, resolve))
 
         res.redirect('/timeline')
 
     }))
 
-    app.post('/like/:id', isLoggedIn, then(async (req, res) => {
-        let twitterClient = new Twitter({
-              consumer_key: twitterConfig.consumerKey,
-              consumer_secret: twitterConfig.consumerSecret,
-              access_token_key: req.user.twitter.token,
-              access_token_secret: req.user.twitter.tokenSecret
-        })
-
+    app.post('/like/:network/:id', isLoggedIn, then(async (req, res) => {
+        let network = req.params.network
         let id = req.params.id
-        console.log('id--->' + id)
-        await twitterClient.promise.post('favorites/create', {id})
+        if(network === "Twitter"){
+            let twitterClient = new Twitter({
+                consumer_key: twitterConfig.consumerKey,
+                consumer_secret: twitterConfig.consumerSecret,
+                access_token_key: req.user.twitter.token,
+                access_token_secret: req.user.twitter.tokenSecret
+            })
+            await twitterClient.promise.post('favorites/create', {id})
+        }
+        if(network === "Facebook"){
+            FB.setAccessToken(req.user.facebook.token)
+            await new Promise((resolve, reject) => FB.api(id+'/likes', 'post', resolve))
+        }
+
 
         res.end()
 
     }))
 
-    app.post('/unlike/:id', isLoggedIn, then(async (req, res) => {
-        let twitterClient = new Twitter({
-              consumer_key: twitterConfig.consumerKey,
-              consumer_secret: twitterConfig.consumerSecret,
-              access_token_key: req.user.twitter.token,
-              access_token_secret: req.user.twitter.tokenSecret
-        })
-
+    app.post('/unlike/:network/:id', isLoggedIn, then(async (req, res) => {
+        let network = req.params.network
         let id = req.params.id
-        console.log('id--->' + id)
-        await twitterClient.promise.post('favorites/destroy', {id})
+        if(network === "Twitter"){
+            let twitterClient = new Twitter({
+                consumer_key: twitterConfig.consumerKey,
+                consumer_secret: twitterConfig.consumerSecret,
+                access_token_key: req.user.twitter.token,
+                access_token_secret: req.user.twitter.tokenSecret
+            })
+            await twitterClient.promise.post('favorites/destroy', {id})
+        }
+        if(network === "Facebook"){
+            FB.setAccessToken(req.user.facebook.token)
+            await new Promise((resolve, reject) => FB.api(id.split('_')[1]+'/likes', 'delete', resolve))
+        }
 
         res.end()
 
