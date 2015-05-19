@@ -2,11 +2,16 @@ let isLoggedIn = require('./middlewares/isLoggedIn')
 //let posts = require('../data/posts')
 let Twitter = require('twitter')
 let then = require('express-then')
+let google = require('googleapis')
+let plus = google.plus('v1')
+let OAuth2 = google.auth.OAuth2
 require('songbird')
 
 module.exports = (app) => {
     let passport = app.passport
     let twitterConfig = app.config.auth.twitterAuth
+    let googleConfig = app.config.auth.googleAuth
+
     let networks = {
         facebook: {
             icon: 'facebook',
@@ -103,8 +108,28 @@ module.exports = (app) => {
                 network: networks.twitter
             }
         })
+
+        let googleOauth2Client = new OAuth2(googleConfig.clientID, googleConfig.clientSecret, googleConfig.callbackURL)
+        googleOauth2Client.setCredentials({
+            access_token: req.user.google.token
+        })
+
+        let [activityResponse] = await plus.activities.promise.list({ userId: req.user.google.id, collection: 'public', auth: googleOauth2Client })
+        let activities = activityResponse.items
+        activities = activities.map (activity => {
+            return {
+                id: activity.id,
+                image: activity.actor.image.url,
+                text: activity.object.content,
+                name: activity.actor.displayName,
+                username: activity.actor.displayName,
+                liked: activity.object.plusoners.totalItems > 0 ? true : false,
+                network: networks.google
+            }
+        })
+
         res.render('timeline.ejs', {
-            posts: tweets,
+            posts: tweets.concat(activities),
             message: req.flash('error')
         })
     }))
