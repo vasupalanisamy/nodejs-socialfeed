@@ -12,7 +12,7 @@ module.exports = (app) => {
     let passport = app.passport
     let twitterConfig = app.config.auth.twitterAuth
     let googleConfig = app.config.auth.googleAuth
-    let facebookConfig = app.config.auth.facebookAuth
+    //let facebookConfig = app.config.auth.facebookAuth
 
     let networks = {
         facebook: {
@@ -31,6 +31,52 @@ module.exports = (app) => {
             class: 'btn-danger'
         }
     }
+    function getTwitterClient(req) {
+        let twitterClient = new Twitter({
+            consumer_key: twitterConfig.consumerKey,
+            consumer_secret: twitterConfig.consumerSecret,
+            access_token_key: req.user.twitter.token,
+            access_token_secret: req.user.twitter.tokenSecret
+        })
+        return twitterClient
+    }
+
+    function getTweetPost(tweet) {
+        return {
+            id: tweet.id_str,
+            image: tweet.user.profile_image_url,
+            text: tweet.text,
+            name: tweet.user.name,
+            username: "@" + tweet.user.screen_name,
+            liked: tweet.favorited,
+            network: networks.twitter
+        }
+    }
+
+    function getGPlusPost(activity) {
+        return {
+            id: activity.id,
+            image: activity.actor.image.url,
+            text: activity.object.content,
+            name: activity.actor.displayName,
+            username: activity.actor.displayName,
+            liked: activity.object.plusoners.totalItems > 0 ? true : false,
+            network: networks.google
+        }
+    }
+
+    function getFBpostPost(fbfeed, req) {
+        return {
+            id: fbfeed.id,
+            image: 'https://graph.facebook.com/v2.3/' + fbfeed.from.id + '/picture',
+            text: fbfeed.message ? fbfeed.message : fbfeed.story,
+            name: fbfeed.from.name,
+            username: req.user.facebook.email,
+            liked: fbfeed.likes ? true : false,
+            network: networks.facebook
+        }
+    }
+
     app.get('/', (req, res) => res.render('index.ejs'))
 
     app.get('/profile', isLoggedIn, (req, res) => {
@@ -88,67 +134,34 @@ module.exports = (app) => {
     }))
 
     app.get('/timeline', isLoggedIn, then(async (req, res) => {
-        let twitterClient = new Twitter({
-              consumer_key: twitterConfig.consumerKey,
-              consumer_secret: twitterConfig.consumerSecret,
-              access_token_key: req.user.twitter.token,
-              access_token_secret: req.user.twitter.tokenSecret
-        })
-
+        let twitterClient = getTwitterClient(req)
         let [tweets] = await twitterClient.promise.get('statuses/home_timeline')
         //console.log(tweets)
 
-        tweets = tweets.map(tweet => {
-            return {
-                id: tweet.id_str,
-                image: tweet.user.profile_image_url,
-                text: tweet.text,
-                name: tweet.user.name,
-                username: "@" + tweet.user.screen_name,
-                liked: tweet.favorited,
-                network: networks.twitter
-            }
+        let tweetPosts = tweets.map(tweet => {
+            return getTweetPost(tweet)
         })
 
-        let googleOauth2Client = new OAuth2(googleConfig.clientID, googleConfig.clientSecret, googleConfig.callbackURL)
-        googleOauth2Client.setCredentials({
-            access_token: req.user.google.token
-        })
+        // let googleOauth2Client = new OAuth2(googleConfig.clientID, googleConfig.clientSecret, googleConfig.callbackURL)
+        // googleOauth2Client.setCredentials({
+        //     access_token: req.user.google.token
+        // })
 
-        let [activityResponse] = await plus.activities.promise.list({ userId: req.user.google.id, collection: 'public', auth: googleOauth2Client })
-        let activities = activityResponse.items
-        activities = activities.map (activity => {
-            return {
-                id: activity.id,
-                image: activity.actor.image.url,
-                text: activity.object.content,
-                name: activity.actor.displayName,
-                username: activity.actor.displayName,
-                liked: activity.object.plusoners.totalItems > 0 ? true : false,
-                network: networks.google
-            }
-        })
+        // let [activityResponse] = await plus.activities.promise.list({ userId: req.user.google.id, collection: 'public', auth: googleOauth2Client })
+        // let gplusPosts = activityResponse.items.map(activity => {
+        //     return getGPlusPost(activity)
+        // })
 
         FB.setAccessToken(req.user.facebook.token)
         let response = await new Promise((resolve, reject) => FB.api('/me/feed', resolve))
-        let fbFeeds = response.data
-        console.log(fbFeeds)
-        fbFeeds = fbFeeds.map (fbfeed => {
-            console.log(JSON.stringify(fbfeed.from))
-            return {
-                id: fbfeed.id,
-                image: 'https://graph.facebook.com/v2.3/' + fbfeed.from.id + '/picture',
-                text: fbfeed.message ? fbfeed.message : fbfeed.story,
-                name: fbfeed.from.name,
-                username: req.user.facebook.email,
-                liked: fbfeed.likes ? true : false,
-                network: networks.facebook
-            }
+        let fbPosts = response.data.map(fbfeed => {
+            return getFBpostPost(fbfeed, req)
+
         })
-        //FB.api('/me/feed', response => )
 
         res.render('timeline.ejs', {
-            posts: tweets.concat(activities).concat(fbFeeds),
+            //posts: tweetPosts.concat(gplusPosts).concat(fbPosts),
+            posts: tweetPosts.concat(fbPosts),
             message: req.flash('error')
         })
     }))
@@ -157,13 +170,43 @@ module.exports = (app) => {
         res.render('compose.ejs')
     })
 
-    app.post('/compose', isLoggedIn, then(async (req, res) => {
-        let twitterClient = new Twitter({
-              consumer_key: twitterConfig.consumerKey,
-              consumer_secret: twitterConfig.consumerSecret,
-              access_token_key: req.user.twitter.token,
-              access_token_secret: req.user.twitter.tokenSecret
+    app.get('/reply/:network/:id', isLoggedIn, then(async (req, res) => {
+        let network = req.params.network
+        let id = req.params.id
+        let post
+        if(network === "twitter") {
+            let twitterClient = getTwitterClient(req)
+            let [tweet] = await twitterClient.promise.get('statuses/show/' + id)
+            post = getTweetPost(tweet)
+        }
+        if(network === "facebook"){
+            FB.setAccessToken(req.user.facebook.token)
+            let response = await new Promise((resolve, reject) => FB.api(id, resolve))
+            console.log(JSON.stringify(response))
+            post = getFBpostPost(response, req)
+        }
+        res.render('reply.ejs', {
+            post: post
         })
+    }))
+    
+    app.post('/reply/:network/:id', isLoggedIn, then(async (req, res) => {
+        let network = req.params.network
+        let id = req.params.id
+        let reply = req.body.reply
+        if(network === "twitter") {
+            let twitterClient = getTwitterClient(req)
+            await twitterClient.promise.post('statuses/update', {status: reply, in_reply_to_status_id: id})
+        }
+        if(network === "facebook"){
+            FB.setAccessToken(req.user.facebook.token)
+            await new Promise((resolve, reject) => FB.api(id+'/comments', 'post', {message: reply}, resolve))
+        }
+        res.redirect('/timeline')
+    }))
+
+    app.post('/compose', isLoggedIn, then(async (req, res) => {
+        let twitterClient = getTwitterClient(req)
         FB.setAccessToken(req.user.facebook.token)
 
         let status = req.body.text
@@ -186,16 +229,11 @@ module.exports = (app) => {
     app.post('/like/:network/:id', isLoggedIn, then(async (req, res) => {
         let network = req.params.network
         let id = req.params.id
-        if(network === "Twitter"){
-            let twitterClient = new Twitter({
-                consumer_key: twitterConfig.consumerKey,
-                consumer_secret: twitterConfig.consumerSecret,
-                access_token_key: req.user.twitter.token,
-                access_token_secret: req.user.twitter.tokenSecret
-            })
+        if(network === "twitter"){
+            let twitterClient = getTwitterClient(req)
             await twitterClient.promise.post('favorites/create', {id})
         }
-        if(network === "Facebook"){
+        if(network === "facebook"){
             FB.setAccessToken(req.user.facebook.token)
             await new Promise((resolve, reject) => FB.api(id+'/likes', 'post', resolve))
         }
@@ -208,23 +246,20 @@ module.exports = (app) => {
     app.post('/unlike/:network/:id', isLoggedIn, then(async (req, res) => {
         let network = req.params.network
         let id = req.params.id
-        if(network === "Twitter"){
-            let twitterClient = new Twitter({
-                consumer_key: twitterConfig.consumerKey,
-                consumer_secret: twitterConfig.consumerSecret,
-                access_token_key: req.user.twitter.token,
-                access_token_secret: req.user.twitter.tokenSecret
-            })
+        if(network === "twitter"){
+            let twitterClient = getTwitterClient(req)
             await twitterClient.promise.post('favorites/destroy', {id})
         }
-        if(network === "Facebook"){
+        if(network === "facebook"){
             FB.setAccessToken(req.user.facebook.token)
-            await new Promise((resolve, reject) => FB.api(id.split('_')[1]+'/likes', 'delete', resolve))
+            await new Promise((resolve, reject) => FB.api(id+'/likes', 'delete', resolve))
         }
 
         res.end()
 
     }))
+
+
 
 }
 
