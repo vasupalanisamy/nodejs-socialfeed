@@ -154,6 +154,7 @@ module.exports = (app) => {
 
         FB.setAccessToken(req.user.facebook.token)
         let response = await new Promise((resolve, reject) => FB.api('/me/feed', resolve))
+        console.log(response.data)
         let fbPosts = response.data.map(fbfeed => {
             return getFBpostPost(fbfeed, req)
 
@@ -189,7 +190,7 @@ module.exports = (app) => {
             post: post
         })
     }))
-    
+
     app.post('/reply/:network/:id', isLoggedIn, then(async (req, res) => {
         let network = req.params.network
         let id = req.params.id
@@ -201,6 +202,53 @@ module.exports = (app) => {
         if(network === "facebook"){
             FB.setAccessToken(req.user.facebook.token)
             await new Promise((resolve, reject) => FB.api(id+'/comments', 'post', {message: reply}, resolve))
+        }
+        res.redirect('/timeline')
+    }))
+
+    app.get('/share/:network/:id', isLoggedIn, then(async (req, res) => {
+        let network = req.params.network
+        let id = req.params.id
+        let post
+        if(network === "twitter") {
+            let twitterClient = getTwitterClient(req)
+            let [tweet] = await twitterClient.promise.get('statuses/show/' + id)
+            post = getTweetPost(tweet)
+        }
+        if(network === "facebook"){
+            FB.setAccessToken(req.user.facebook.token)
+            let response = await new Promise((resolve, reject) => FB.api(id, resolve))
+            console.log(JSON.stringify(response))
+            post = getFBpostPost(response, req)
+        }
+        res.render('share.ejs', {
+            post: post
+        })
+    }))
+
+    app.post('/share/:network/:id', isLoggedIn, then(async (req, res) => {
+        let network = req.params.network
+        let id = req.params.id
+        let share = req.body.share
+        if(network === "twitter") {
+            let twitterClient = getTwitterClient(req)
+            await twitterClient.promise.post('statuses/retweet/' +  id, {status: share})
+        }
+        if(network === "facebook"){
+            console.log('i m here.....')
+            let postId = id.split('_')
+            //let url = 'me/feed?link=https://www.facebook.com/' + postId[0] + '/posts/' + postId[1] +
+            //     '&message=' + share + '&access_token=' + req.user.facebook.token            
+            FB.setAccessToken(req.user.facebook.token)
+            let url = 'https://www.facebook.com/' + postId[0] + '/posts/' + postId[1]
+            console.log('link......' + url)
+
+            try {
+                await new Promise((resolve, reject) => FB.api('me/feed', 'post', {link: url, message: share}, resolve))
+            } catch (e) {
+                console.log(e.stack)
+            }
+            
         }
         res.redirect('/timeline')
     }))
