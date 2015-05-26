@@ -3,16 +3,16 @@ let isLoggedIn = require('./middlewares/isLoggedIn')
 let Twitter = require('twitter')
 let then = require('express-then')
 let FB = require('fb')
-//let google = require('googleapis')
-//let plus = google.plus('v1')
-//let OAuth2 = google.auth.OAuth2
+let google = require('googleapis')
+let plus = google.plus('v1')
+let OAuth2 = google.auth.OAuth2
 let Post = require('./models/post')
 require('songbird')
 
 module.exports = (app) => {
     let passport = app.passport
     let twitterConfig = app.config.auth.twitterAuth
-    //let googleConfig = app.config.auth.googleAuth
+    let googleConfig = app.config.auth.googleAuth
     //let facebookConfig = app.config.auth.facebookAuth
 
     let networks = {
@@ -157,35 +157,42 @@ module.exports = (app) => {
 
         let twitterClient = getTwitterClient(req)
         let tweets
-        if(tweetPosts.length > 0) {
-            [tweets] = await twitterClient.promise.get('statuses/home_timeline', {since_id: tweetPosts[0].id})
-        } else {
-            [tweets] = await twitterClient.promise.get('statuses/home_timeline')
-        }
+            try {
+                //console.log(network, id, share)
+                if(tweetPosts.length > 0) {
+                    [tweets] = await twitterClient.promise.get('statuses/home_timeline', {since_id: tweetPosts[0].id})
+                } else {
+                    [tweets] = await twitterClient.promise.get('statuses/home_timeline')
+                }
+            
+            } catch (e) {
+                console.log(e.stack)
+            }        
 
         tweets.forEach(tweet => {
             tweetPosts.push(createTweetPost(tweet, req))
         })
 
-        // let googleOauth2Client = new OAuth2(googleConfig.clientID, googleConfig.clientSecret, googleConfig.callbackURL)
-        // googleOauth2Client.setCredentials({
-        //     access_token: req.user.google.token
-        // })
+        let googleOauth2Client = new OAuth2(googleConfig.clientID, googleConfig.clientSecret, googleConfig.callbackURL)
+        googleOauth2Client.setCredentials({
+            access_token: req.user.google.token
+        })
 
-        // let [activityResponse] = await plus.activities.promise.list({ userId: req.user.google.id, collection: 'public', auth: googleOauth2Client })
-        // let gplusPosts = activityResponse.items.map(activity => {
-        //     return getGPlusPost(activity)
-        // })
+        let [activityResponse] = await plus.activities.promise.list({ userId: req.user.google.id, collection: 'public', auth: googleOauth2Client })
+        let gplusPosts = activityResponse.items.map(activity => {
+            return getGPlusPost(activity)
+        })
 
         FB.setAccessToken(req.user.facebook.token)
         let response = await new Promise((resolve, reject) => FB.api('/me/feed', resolve))
+        //console.log('facebook feed response:' + JSON.stringify(response.data))
         let fbPosts = response.data.map(fbfeed => {
             return getFBpostPost(fbfeed, req)
         })
 
         res.render('timeline.ejs', {
-            //posts: tweetPosts.concat(gplusPosts).concat(fbPosts),
-            posts: tweetPosts.concat(fbPosts),
+            posts: tweetPosts.concat(gplusPosts).concat(fbPosts),
+            //posts: tweetPosts.concat(fbPosts),
             message: req.flash('error')
         })
     }))
@@ -250,12 +257,18 @@ module.exports = (app) => {
     }))
 
     app.post('/share/:network/:id', isLoggedIn, then(async (req, res) => {
+
         let network = req.params.network
         let id = req.params.id
         let share = req.body.share
         if(network === "twitter") {
             let twitterClient = getTwitterClient(req)
+            try {
+                console.log(network, id, share)
             await twitterClient.promise.post('statuses/retweet/' + id, {status: share})
+            } catch (e) {
+                console.log(e.stack)
+            }            
         }
         if(network === "facebook"){
             let postId = id.split('_')
@@ -264,7 +277,9 @@ module.exports = (app) => {
 
             await new Promise((resolve, reject) => FB.api('me/feed', 'post', {link: url, message: share}, resolve))
         }
-        res.redirect('/timeline')
+        res.redirect('/timeline')            
+
+
     }))
 
     app.post('/compose', isLoggedIn, then(async (req, res) => {
