@@ -39,4 +39,4 @@ Time spent: 30 hrs (Including real time update using socket io)
 
 ### Walkthrough
 
-![Demo]
+![Demo](https://github.com/vasupalanisamy/nodejs-socialfeed/blob/master/social-feed-demo.gif)
