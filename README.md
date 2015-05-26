@@ -1,6 +1,6 @@
 ## Social Feed
 
-This is a aggregated Social Feed app for consumer Facebook, and Twitter in a single Timeline.
+This is an aggregated Social Feed app for Facebook, Twitter and google in a single Timeline. Real time update for twitter is implemented using twitter stream API and socket.io
 
 Time spent: 30 hrs (Including real time update using socket io)
 
@@ -31,6 +31,8 @@ Time spent: 30 hrs (Including real time update using socket io)
 
 ### Optional
 
+- [Done] Link google plus account
+- [Done] Fetch posts from google plus and display it in timeline screen.
 - [ ] User can click a post and view it on a separate page with controls to share, like, and reply.
 - [ ] User should be able to unshare their posts.
 - [ ] User should be able to delete their posts.
