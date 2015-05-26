@@ -25,6 +25,7 @@
     <% if (typeof message !== 'undefined' && message.length > 0) { %>
         <div class="alert alert-danger"><%= message %></div>
     <% } %>
+    <div id="postlist">
 
     <% for(var post,i=0; post=posts[i]; i++) {%>
         <div class="row well">
@@ -42,7 +43,7 @@
                 <div class="row _icons">
                     <i class="fa <%= post.liked ? "fa-thumbs-up" : "fa-thumbs-o-up" %> fa-2x _like" name="like-<%= post.network.name.toLowerCase() %>:<%= post.id %>"></i>
                     <a href="/reply/<%= post.network.name.toLowerCase() %>/<%= post.id %>" class="fa fa-reply fa-2x"></a>
-                    <a href="/share/<%= post.network.name.toLowerCase(); %>/<%= post.id %>" class="fa fa-share-square-o fa-2x"></a>
+                    <a href="/share/<%= post.network.name.toLowerCase() %>/<%= post.id %>" class="fa fa-share-square-o fa-2x"></a>
                 </div>
             </div>
             <div class="col-xs-2">
@@ -50,11 +51,12 @@
             </div>
         </div>
     <% } %>
+    </div>
 </div>
 </body>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
 <script>
-    $(function() {
+    function attachClickEvent () {
         $('._like').click(function() {
             var $this = $(this)
             var post = $this.attr('name').split(':')
@@ -68,6 +70,10 @@
                 $.post('unlike/' + network + '/' +id)
             }
         })
+    }
+    $(document).ready(function() {
+        attachClickEvent()
     })
 </script>
+<script src="/js/index.js"></script>
 </html>

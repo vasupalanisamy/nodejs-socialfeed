@@ -13,7 +13,6 @@ require('songbird')
 function useExternalPassportStrategy(OauthStrategy, config, field) {
   config.passReqToCallback = true
   console.log('configuring....' + field)
-  passport.use(field, new OauthStrategy(config, nodeifyit(authCB, {spread: true})))
 
   // 1. Load user from store
   // 2. If req.user exists, we're authorizing (connecting an account)
@@ -23,10 +22,6 @@ function useExternalPassportStrategy(OauthStrategy, config, field) {
   // 3a. If user exists, we're logging in via the 3rd party account
   // 3b. Otherwise create a user associated with the 3rd party account
   async function authCB(req, token, tokenSecret, account) {
-    console.log('req.user-->' + req.user)
-    console.log('token-->' + token)
-    console.log('tokenSecret-->' + tokenSecret)
-    console.log('account-->' + JSON.stringify(account))
     let idField = field + '.id'
     let query = {}
     query[idField] = account.id
@@ -41,11 +36,9 @@ function useExternalPassportStrategy(OauthStrategy, config, field) {
       }
     } else {
       if(dbUser) {
-        console.log('dbUser.id if block' + dbUser.id)
         //Logged in using social account
         user = dbUser
       } else {
-        console.log('dbUser.id else block' + dbUser)
         //Creating the account for social login
         user = new User()
       }
@@ -60,7 +53,6 @@ function useExternalPassportStrategy(OauthStrategy, config, field) {
     }
 
     user[field].name = account.displayName
-    console.log('updateSocialAccountInfo' + user)
     try{
       return await user.save()
     }catch(excep){
@@ -68,6 +60,8 @@ function useExternalPassportStrategy(OauthStrategy, config, field) {
       return [false, {message: excep.message}]
     }
   }
+
+  passport.use(field, new OauthStrategy(config, nodeifyit(authCB, {spread: true})))
 }
 
 function configure(config) {
@@ -77,7 +71,6 @@ function configure(config) {
       return await User.promise.findById(id)
   }))
 
-  console.log('config...' + config)
   useExternalPassportStrategy(FacebookStrategy, config.facebookAuth, 'facebook')
   useExternalPassportStrategy(GoogleStrategy, config.googleAuth, 'google')
   useExternalPassportStrategy(TwitterStrategy, config.twitterAuth, 'twitter')
@@ -90,7 +83,6 @@ function configure(config) {
       let regExp = new RegExp(email, "i")
       regExQuery = {'local.email': {$regex: regExp}}
       let user = await User.promise.findOne(regExQuery)
-      console.log("user" + user)
       if(!user) {
           return [false, {message: 'Invalid username or password'}]
       }
