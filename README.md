@@ -24,5 +24,7 @@ Time spent: 30 hrs (Including real time update using socket io)
 
 ### Wirefrmaes
 ![alt tag](https://github.com/node-labs/api-management/blob/master/images/wireframe-home-page.png)
+****
 ![alt tag](https://github.com/node-labs/api-management/blob/master/images/wireframe-create-edit-config.png)
+****
 ![alt tag](https://github.com/node-labs/api-management/blob/master/images/wireframe-monitoring-dashboard.png)
